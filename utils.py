@@ -163,3 +163,39 @@ def plot_results(results, method):
     ax2.legend(handles=[line3, line4, line5], loc="upper right", fontsize=10, frameon=True)
 
     plt.show()
+
+def visualize_communities(method="louvain"):
+    prr_values = [0.02, 0.16, 1.00]
+
+    # Compute node positions from prr=1.00 network
+    G_layout = _load_network("A3_synthetic_networks/synthetic_network_N_300_blocks_5_prr_1.00_prs_0.02.net")
+    pos = nx.spring_layout(G_layout, seed=42)  # Using Fruchterman-Reingold layout
+
+    fig, axes = plt.subplots(1, 3, figsize=(18, 6))
+
+    for idx, prr in enumerate(prr_values):
+        file_path = f"A3_synthetic_networks/synthetic_network_N_300_blocks_5_prr_{prr:.2f}_prs_0.02.net"
+        G = _load_network(file_path)
+
+        # Detect communities
+        if method == "louvain":
+            partition, _ = _louvain(G)
+        elif method == "girvan_newman":
+            partition, _ = _girvan_newman(G)
+        elif method == "infomap":
+            partition, _ = _infomap(G)
+        else:
+            raise ValueError("Method must be 'louvain', 'girvan_newman', or 'infomap'.")
+
+        # Assign colors based on communities
+        communities = list(set(partition.values()))
+        cmap = plt.get_cmap("tab10", len(communities))  # Use a colormap with distinct colors
+        node_colors = [cmap(communities.index(partition[node])) for node in G.nodes()]
+
+        # Plot network
+        ax = axes[idx]
+        ax.set_title(f"prr = {prr:.2f}", fontsize=14, fontweight="bold")
+        nx.draw(G, pos, ax=ax, node_color=node_colors, node_size=60, edge_color="gray", alpha=0.6, with_labels=False)
+
+    fig.suptitle(f"Community Structure Visualization - {method.capitalize()} Method", fontsize=16, fontweight="bold")
+    plt.show()
