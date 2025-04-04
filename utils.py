@@ -1,17 +1,31 @@
 import networkx as nx
-import community as community_louvain  
+
 from networkx.algorithms.community import girvan_newman
-from infomap import Infomap  
+from networkx.algorithms.community import louvain
+
+#from infomap import Infomap
 import matplotlib.pyplot as plt
 from sklearn.metrics import jaccard_score, normalized_mutual_info_score
 from scipy.stats import entropy
 
-def analyze_network_evolution(method="louvain"):
+from enum import Enum, auto
+
+class CommunityDetectionMethod(Enum):
+    LOUVAIN = auto()
+    GIRVAN_NEWMAN = auto()
+    INFOMAP = auto()
+
+    def __str__(self):
+        return self.name
+
+DIR = "A3_synthetic_networks"
+
+def analyze_network_evolution(method=CommunityDetectionMethod.LOUVAIN):
     results = []
 
     for i in range(0, 101, 2):
         prr = i / 100
-        file_path = f"A3_synthetic_networks/synthetic_network_N_300_blocks_5_prr_{prr:.2f}_prs_0.02.net"
+        file_path = f"{DIR}/synthetic_network_N_300_blocks_5_prr_{prr:.2f}_prs_0.02.net"
         G = _load_network(file_path)
 
         print(f"Processing network: {file_path}")
@@ -20,17 +34,17 @@ def analyze_network_evolution(method="louvain"):
         true_partition = _get_true_partition(G)
 
         # Run the selected community detection method
-        if method == "louvain":
+        if method == CommunityDetectionMethod.LOUVAIN:
             partition, num_communities = _louvain(G)
-        elif method == "girvan_newman":
+        elif method == CommunityDetectionMethod.GIRVAN_NEWMAN:
             partition, num_communities = _girvan_newman(G)
-        elif method == "infomap":
+        elif method == CommunityDetectionMethod.INFOMAP:
             partition, num_communities = _infomap(G)
         else:
             raise ValueError("Method must be 'louvain', 'girvan_newman', or 'infomap'.")
 
         # Compute modularity
-        modularity = community_louvain.modularity(partition, G)
+        modularity = louvain.modularity(G, partition)
 
         # Compute similarity metrics
         jaccard, nmi, nvi = _compare_partitions(true_partition, partition, G)
@@ -70,25 +84,24 @@ def _get_true_partition(G):
         true_partition[node] = (node - 1) // 60
     return true_partition
 
-
 def _louvain(G):
-    partition = community_louvain.best_partition(G)
-    num_communities = len(set(partition.values()))
+    partition = louvain.louvain_communities(G)
+    num_communities = len(partition)
     return partition, num_communities
 
 
 def _girvan_newman(G):
-    communities = list(girvan_newman(G))
+    communities = girvan_newman(G)
     if communities:
-        first_partition = tuple(sorted(c) for c in next(iter(communities)))
-        num_communities = len(first_partition)
-        partition = {node: i for i, comm in enumerate(first_partition) for node in comm}
+        partition = tuple(sorted(c) for c in next(communities))
+        num_communities = len(partition)
+        #partition = {node: i for i, comm in enumerate(first_partition) for node in comm}
         return partition, num_communities
     return {}, 0
 
 
 def _infomap(G):
-    im = Infomap()
+    '''im = Infomap()
     for node in G.nodes():
         im.add_node(node)
     for u, v in G.edges():
@@ -96,25 +109,32 @@ def _infomap(G):
     im.run()
     partition = im.get_modules()
     num_communities = len(set(partition.values()))
-    return partition, num_communities
+    return partition, num_communities'''
 
 
 def _compare_partitions(true_partition, detected_partition, G):
     """Computes Jaccard Index, NMI, and Normalized Variation of Information (NVI)."""
     true_labels = [true_partition[node] for node in sorted(G.nodes())]
-    detected_labels = [detected_partition.get(node, -1) for node in sorted(G.nodes())]
+
+    # Convert detected_partition (list of sets) to a dict mapping node -> community label
+    detected_partition_dict = {}
+    for i, community in enumerate(detected_partition):
+        for node in community:
+            detected_partition_dict[node] = i
+
+    detected_labels = [detected_partition_dict.get(node, -1) for node in sorted(G.nodes())]
 
     jaccard = jaccard_score(true_labels, detected_labels, average="macro")
     nmi = normalized_mutual_info_score(true_labels, detected_labels)
 
     # Compute normalized variation of information (NVI)
     true_clusters = set(true_partition.values())
-    detected_clusters = set(detected_partition.values())
+    detected_clusters = set(detected_partition_dict.values())
 
     # Create aligned probability distributions
     all_clusters = true_clusters.union(detected_clusters)
     p1 = [list(true_partition.values()).count(c) / len(true_partition) for c in all_clusters]
-    p2 = [list(detected_partition.values()).count(c) / len(detected_partition) for c in all_clusters]
+    p2 = [list(detected_partition_dict.values()).count(c) / len(detected_partition_dict) for c in all_clusters]
 
     nvi = entropy(p1, p2)
 
@@ -158,44 +178,54 @@ def plot_results(results, method):
         ax2.text(prr_values[i], nmi[i], f"{nmi[i]:.2f}", fontsize=9, ha="left", color="tab:orange")
         ax2.text(prr_values[i], nvi[i], f"{nvi[i]:.2f}", fontsize=9, ha="left", color="tab:pink")
 
-    fig.suptitle(f"Community Evolution - {method.capitalize()} Method", fontsize=14, fontweight="bold")
+    fig.suptitle(f"Community Evolution - {method} Method", fontsize=14, fontweight="bold")
     ax1.legend(handles=[line1, line2], loc="upper left", fontsize=10, frameon=True)
     ax2.legend(handles=[line3, line4, line5], loc="upper right", fontsize=10, frameon=True)
 
     plt.show()
 
-def visualize_communities(method="louvain"):
+def visualize_communities(method=CommunityDetectionMethod.LOUVAIN):
     prr_values = [0.02, 0.16, 1.00]
 
     # Compute node positions from prr=1.00 network
-    G_layout = _load_network("A3_synthetic_networks/synthetic_network_N_300_blocks_5_prr_1.00_prs_0.02.net")
+    G_layout = _load_network(f"{DIR}/synthetic_network_N_300_blocks_5_prr_1.00_prs_0.02.net")
     pos = nx.spring_layout(G_layout, seed=42)  # Using Fruchterman-Reingold layout
 
     fig, axes = plt.subplots(1, 3, figsize=(18, 6))
 
     for idx, prr in enumerate(prr_values):
-        file_path = f"A3_synthetic_networks/synthetic_network_N_300_blocks_5_prr_{prr:.2f}_prs_0.02.net"
+        file_path = f"{DIR}/synthetic_network_N_300_blocks_5_prr_{prr:.2f}_prs_0.02.net"
         G = _load_network(file_path)
 
         # Detect communities
-        if method == "louvain":
+        if method == CommunityDetectionMethod.LOUVAIN:
             partition, _ = _louvain(G)
-        elif method == "girvan_newman":
+        elif method == CommunityDetectionMethod.GIRVAN_NEWMAN:
             partition, _ = _girvan_newman(G)
-        elif method == "infomap":
+        elif method == CommunityDetectionMethod.INFOMAP:
             partition, _ = _infomap(G)
         else:
             raise ValueError("Method must be 'louvain', 'girvan_newman', or 'infomap'.")
 
         # Assign colors based on communities
-        communities = list(set(partition.values()))
-        cmap = plt.get_cmap("tab10", len(communities))  # Use a colormap with distinct colors
-        node_colors = [cmap(communities.index(partition[node])) for node in G.nodes()]
+        node_to_community = {}
+        for id, community in enumerate(partition):
+            for node in community:
+                node_to_community[node] = id
+
+        # Get the number of communities
+        num_communities = len(partition)
+
+        # Get a colormap with distinct colors
+        cmap = plt.get_cmap("tab10", num_communities)
+
+        # Assign colors to nodes based on community
+        node_colors = [cmap(node_to_community.get(node, -1)) for node in G.nodes()]
 
         # Plot network
         ax = axes[idx]
         ax.set_title(f"prr = {prr:.2f}", fontsize=14, fontweight="bold")
         nx.draw(G, pos, ax=ax, node_color=node_colors, node_size=60, edge_color="gray", alpha=0.6, with_labels=False)
 
-    fig.suptitle(f"Community Structure Visualization - {method.capitalize()} Method", fontsize=16, fontweight="bold")
+    fig.suptitle(f"Community Structure Visualization - {method} Method", fontsize=16, fontweight="bold")
     plt.show()
