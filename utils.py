@@ -1,17 +1,12 @@
 import networkx as nx
 import pandas as pd
-
-from networkx.algorithms.community import girvan_newman, greedy_modularity_communities, louvain_communities
-from networkx.algorithms.community import louvain
-from networkx.algorithms.community import greedy_modularity_communities
-from networkx.algorithms.community.quality import modularity as modularity_function
-from networkx.algorithms.link_prediction import jaccard_coefficient
-#from infomap import Infomap
 import matplotlib.pyplot as plt
-from scipy.cluster.hierarchy import weighted
-from scipy.spatial.distance import jaccard
-from sklearn.metrics import jaccard_score, normalized_mutual_info_score
+
+from networkx.algorithms.community.quality import modularity as modularity_function
+from infomap import Infomap
+from sklearn.metrics import jaccard_score, normalized_mutual_info_score, confusion_matrix
 from scipy.stats import entropy
+from scipy.optimize import linear_sum_assignment
 
 from enum import Enum, auto
 
@@ -51,6 +46,7 @@ def analyze_network_evolution(method=CommunityDetectionMethod.LOUVAIN):
                 partition, num_communities = _infomap(G)
             case _:
                 raise ValueError(f"Method must be a valid {CommunityDetectionMethod} enumerate class.")
+
         # Compute modularity
         modularity = modularity_function(G, partition)
 
@@ -86,34 +82,32 @@ def _load_network(file_path=""):
 
 
 def _get_true_partition(G):
-    """Returns the ground-truth partition (5 blocks of 60 nodes)."""
     true_partition = {}
     for node in G.nodes():
         true_partition[node] = (node - 1) // 60
     return true_partition
 
 def _louvain(G):
-    partition = louvain.louvain_communities(G)
+    partition = nx.algorithms.community.louvain.louvain_communities(G)
     num_communities = len(partition)
     return partition, num_communities
 
 
 def _girvan_newman(G):
-    communities = girvan_newman(G)
+    communities = nx.algorithms.community.girvan_newman(G)
     if communities:
         partition = tuple(sorted(c) for c in next(communities))
         num_communities = len(partition)
-        #partition = {node: i for i, comm in enumerate(first_partition) for node in comm}
         return partition, num_communities
     return {}, 0
 
 def _greedy(G):
-    communities = greedy_modularity_communities(G)
+    communities = nx.algorithms.community.greedy_modularity_communities(G)
     return communities, len(communities)
 
 
 def _infomap(G):
-    '''im = Infomap()
+    im = Infomap()
     for node in G.nodes():
         im.add_node(node)
     for u, v in G.edges():
@@ -121,7 +115,19 @@ def _infomap(G):
     im.run()
     partition = im.get_modules()
     num_communities = len(set(partition.values()))
-    return partition, num_communities'''
+    # Convert dict to list of sets
+    communities = {}
+    for node, module in partition.items():
+        communities.setdefault(module, set()).add(node)
+    return list(communities.values()), num_communities
+
+
+def _align_labels(true_labels, pred_labels):
+    cm = confusion_matrix(true_labels, pred_labels)
+    row_ind, col_ind = linear_sum_assignment(-cm)
+    mapping = {col: row for row, col in zip(row_ind, col_ind)}
+    aligned_pred = [mapping.get(label, -1) for label in pred_labels]
+    return aligned_pred
 
 
 def _compare_partitions(true_partition, detected_partition, G):
@@ -135,18 +141,19 @@ def _compare_partitions(true_partition, detected_partition, G):
             detected_partition_dict[node] = i
 
     detected_labels = [detected_partition_dict.get(node, -1) for node in sorted(G.nodes())]
-    jaccard = jaccard_score(true_labels, detected_labels, average="macro")
-    nmi = normalized_mutual_info_score(true_labels, detected_labels)
+
+    # Align detected labels to true labels
+    aligned_labels = _align_labels(true_labels, detected_labels)
+
+    jaccard = jaccard_score(true_labels, aligned_labels, average="macro")
+    nmi = normalized_mutual_info_score(true_labels, aligned_labels)
 
     # Compute normalized variation of information (NVI)
     true_clusters = set(true_partition.values())
     detected_clusters = set(detected_partition_dict.values())
-
-    # Create aligned probability distributions
     all_clusters = true_clusters.union(detected_clusters)
     p1 = [list(true_partition.values()).count(c) / len(true_partition) for c in all_clusters]
     p2 = [list(detected_partition_dict.values()).count(c) / len(detected_partition_dict) for c in all_clusters]
-
     nvi = entropy(p1, p2)
 
     return jaccard, nmi, nvi
@@ -260,9 +267,9 @@ def visualize_communities_kamada_kawai(network_path: str, method: CommunityDetec
     # Detect communities
     match method:
         case CommunityDetectionMethod.LOUVAIN:
-            communities = louvain_communities(G, weight="weight" if weighted else None)
+            communities = nx.algorithms.community.louvain_communities(G, weight="weight" if weighted else None)
         case CommunityDetectionMethod.GREEDY:
-            communities = greedy_modularity_communities(G, weight="weight" if weighted else None)
+            communities = nx.algorithms.community.greedy_modularity_communities(G, weight="weight" if weighted else None)
         case _:
             raise ValueError(f"Method must be a valid {CommunityDetectionMethod} enumerate class.")
 
@@ -309,17 +316,17 @@ def stack_plot_school(network_path: str, metadata_path: str, method: CommunityDe
     if weighted:
         match method:
             case CommunityDetectionMethod.LOUVAIN:
-                communities = louvain_communities(G, weight="weight")
+                communities = nx.algorithms.community.louvain_communities(G, weight="weight")
             case CommunityDetectionMethod.GREEDY:
-                communities = greedy_modularity_communities(G, weight="weight")
+                communities = nx.algorithms.community.greedy_modularity_communities(G, weight="weight")
             case _:
                 raise ValueError(f"Method must be a valid {CommunityDetectionMethod} enumerate class.")
     else:
         match method:
             case CommunityDetectionMethod.LOUVAIN:
-                communities = louvain_communities(G)
+                communities = nx.algorithms.community.louvain_communities(G)
             case CommunityDetectionMethod.GREEDY:
-                communities = greedy_modularity_communities(G)
+                communities = nx.algorithms.community.greedy_modularity_communities(G)
             case _:
                 raise ValueError(f"Method must be a valid {CommunityDetectionMethod} enumerate class.")
 
