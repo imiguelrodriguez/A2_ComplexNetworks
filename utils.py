@@ -15,11 +15,13 @@ class CommunityDetectionMethod(Enum):
     GIRVAN_NEWMAN = auto()
     GREEDY = auto()
     INFOMAP = auto()
+    LABEL_PROPAGATION = auto()
 
     def __str__(self):
         return self.name
 
 DIR = "A3_synthetic_networks"
+
 
 def analyze_network_evolution(method=CommunityDetectionMethod.LOUVAIN):
     results = []
@@ -30,11 +32,8 @@ def analyze_network_evolution(method=CommunityDetectionMethod.LOUVAIN):
         G = _load_network(file_path)
 
         print(f"Processing network: {file_path}")
-
-        # Get the ground-truth partition
         true_partition = _get_true_partition(G)
 
-        # Run the selected community detection method
         match method:
             case CommunityDetectionMethod.LOUVAIN:
                 partition, num_communities = _louvain(G)
@@ -44,16 +43,14 @@ def analyze_network_evolution(method=CommunityDetectionMethod.LOUVAIN):
                 partition, num_communities = _greedy(G)
             case CommunityDetectionMethod.INFOMAP:
                 partition, num_communities = _infomap(G)
+            case CommunityDetectionMethod.LABEL_PROPAGATION:
+                partition, num_communities = _label_propagation(G)
             case _:
                 raise ValueError(f"Method must be a valid {CommunityDetectionMethod} enumerate class.")
 
-        # Compute modularity
         modularity = modularity_function(G, partition)
-
-        # Compute similarity metrics
         jaccard, nmi, nvi = _compare_partitions(true_partition, partition, G)
 
-        # Store results
         results.append({
             "prr": prr,
             "num_communities": num_communities,
@@ -87,10 +84,11 @@ def _get_true_partition(G):
         true_partition[node] = (node - 1) // 60
     return true_partition
 
+
 def _louvain(G):
-    partition = nx.algorithms.community.louvain.louvain_communities(G)
-    num_communities = len(partition)
-    return partition, num_communities
+    communities = nx.algorithms.community.louvain.louvain_communities(G)
+    num_communities = len(communities)
+    return communities, num_communities
 
 
 def _girvan_newman(G):
@@ -100,6 +98,7 @@ def _girvan_newman(G):
         num_communities = len(partition)
         return partition, num_communities
     return {}, 0
+
 
 def _greedy(G):
     communities = nx.algorithms.community.greedy_modularity_communities(G)
@@ -120,6 +119,12 @@ def _infomap(G):
     for node, module in partition.items():
         communities.setdefault(module, set()).add(node)
     return list(communities.values()), num_communities
+
+
+def _label_propagation(G):
+    communities = nx.algorithms.community.label_propagation_communities(G)
+    communities = list(communities)
+    return communities, len(communities)
 
 
 def _align_labels(true_labels, pred_labels):
@@ -169,7 +174,6 @@ def plot_results(results, method):
 
     fig, ax1 = plt.subplots(figsize=(14, 6))
 
-    # Primary y-axis (Number of Communities + Modularity)
     ax1.set_xlabel("prr", fontsize=12)
     ax1.set_ylabel("Number of Communities / Modularity", fontsize=12)
     line1, = ax1.plot(prr_values, num_communities, label="Number of Communities", linestyle="--", marker="o", alpha=0.7)
@@ -177,12 +181,10 @@ def plot_results(results, method):
     ax1.tick_params(axis="y")
     ax1.grid(True, linestyle="--", alpha=0.5)
 
-    # Add numerical values along the lines
     for i in range(0, len(prr_values), 10):  
         ax1.text(prr_values[i], num_communities[i], f"{num_communities[i]}", fontsize=9, ha="right", color="tab:blue")
         ax1.text(prr_values[i], modularity[i], f"{modularity[i]:.2f}", fontsize=9, ha="left", color="tab:cyan")
 
-    # Secondary y-axis (Similarity Metrics)
     ax2 = ax1.twinx()
     ax2.set_ylabel("Similarity Metrics", fontsize=12)
     line3, = ax2.plot(prr_values, jaccard, label="Jaccard", color="tab:red", linestyle="-.", marker="^", alpha=0.7)
@@ -190,7 +192,6 @@ def plot_results(results, method):
     line5, = ax2.plot(prr_values, nvi, label="NVI", color="tab:pink", linestyle=":", marker="D", alpha=0.7)
     ax2.tick_params(axis="y")
 
-    # Add numerical values along the lines (only for some points)
     for i in range(0, len(prr_values), 5):
         ax2.text(prr_values[i], jaccard[i], f"{jaccard[i]:.2f}", fontsize=9, ha="right", color="tab:red")
         ax2.text(prr_values[i], nmi[i], f"{nmi[i]:.2f}", fontsize=9, ha="left", color="tab:orange")
@@ -207,14 +208,14 @@ def visualize_communities(method=CommunityDetectionMethod.LOUVAIN):
 
     # Compute node positions from prr=1.00 network
     G_layout = _load_network(f"{DIR}/synthetic_network_N_300_blocks_5_prr_1.00_prs_0.02.net")
-    pos = nx.spring_layout(G_layout, seed=42)  # Using Fruchterman-Reingold layout
+    pos = nx.spring_layout(G_layout, seed=42)
 
     fig, axes = plt.subplots(1, 3, figsize=(18, 6))
 
     for idx, prr in enumerate(prr_values):
         file_path = f"{DIR}/synthetic_network_N_300_blocks_5_prr_{prr:.2f}_prs_0.02.net"
         G = _load_network(file_path)
-        # Detect communities
+        
         match method:
             case CommunityDetectionMethod.LOUVAIN:
                 partition, _ = _louvain(G)
@@ -222,31 +223,31 @@ def visualize_communities(method=CommunityDetectionMethod.LOUVAIN):
                 partition, _ = _girvan_newman(G)
             case CommunityDetectionMethod.INFOMAP:
                 partition, _ = _infomap(G)
+            case CommunityDetectionMethod.GREEDY:
+                partition, _ = _greedy(G)
+            case CommunityDetectionMethod.LABEL_PROPAGATION:
+                partition, _ = _label_propagation(G)
             case _:
                 raise ValueError(f"Method must be a valid {CommunityDetectionMethod} enumerate class.")
 
-        # Assign colors based on communities
         node_to_community = {}
         for id, community in enumerate(partition):
             for node in community:
                 node_to_community[node] = id
 
-        # Get the number of communities
         num_communities = len(partition)
-
-        # Get a colormap with distinct colors
         cmap = plt.get_cmap("tab10", num_communities)
-
-        # Assign colors to nodes based on community
         node_colors = [cmap(node_to_community.get(node, -1)) for node in G.nodes()]
-
-        # Plot network
         ax = axes[idx]
         ax.set_title(f"prr = {prr:.2f}", fontsize=14, fontweight="bold")
         nx.draw(G, pos, ax=ax, node_color=node_colors, node_size=60, edge_color="gray", alpha=0.6, with_labels=False)
 
     fig.suptitle(f"Community Structure Visualization - {method} Method", fontsize=16, fontweight="bold")
     plt.show()
+
+
+
+
 
 def visualize_communities_kamada_kawai(network_path: str, method: CommunityDetectionMethod):
     import os
