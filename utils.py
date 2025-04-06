@@ -106,7 +106,7 @@ def _greedy(G):
 
 
 def _infomap(G):
-    im = Infomap()
+    im = Infomap(silent=True)
     for node in G.nodes():
         im.add_node(node)
     for u, v in G.edges():
