@@ -110,7 +110,7 @@ def _infomap(G):
     for node in G.nodes():
         im.add_node(node)
     for u, v in G.edges():
-        im.add_link(u, v)
+        im.add_link(u, v, weight=G[u][v].get("weight", 1.0))
     im.run()
     partition = im.get_modules()
     num_communities = len(set(partition.values()))
@@ -271,6 +271,8 @@ def visualize_communities_kamada_kawai(network_path: str, method: CommunityDetec
             communities = nx.algorithms.community.louvain_communities(G, weight="weight" if weighted else None)
         case CommunityDetectionMethod.GREEDY:
             communities = nx.algorithms.community.greedy_modularity_communities(G, weight="weight" if weighted else None)
+        case CommunityDetectionMethod.INFOMAP:
+            communities, _ = _infomap(G)
         case _:
             raise ValueError(f"Method must be a valid {CommunityDetectionMethod} enumerate class.")
 
@@ -320,6 +322,8 @@ def stack_plot_school(network_path: str, metadata_path: str, method: CommunityDe
                 communities = nx.algorithms.community.louvain_communities(G, weight="weight")
             case CommunityDetectionMethod.GREEDY:
                 communities = nx.algorithms.community.greedy_modularity_communities(G, weight="weight")
+            case CommunityDetectionMethod.INFOMAP:
+                communities, _ = _infomap(G)
             case _:
                 raise ValueError(f"Method must be a valid {CommunityDetectionMethod} enumerate class.")
     else:
@@ -328,6 +332,8 @@ def stack_plot_school(network_path: str, metadata_path: str, method: CommunityDe
                 communities = nx.algorithms.community.louvain_communities(G)
             case CommunityDetectionMethod.GREEDY:
                 communities = nx.algorithms.community.greedy_modularity_communities(G)
+            case CommunityDetectionMethod.INFOMAP:
+                communities, _ = _infomap(G)
             case _:
                 raise ValueError(f"Method must be a valid {CommunityDetectionMethod} enumerate class.")
 
