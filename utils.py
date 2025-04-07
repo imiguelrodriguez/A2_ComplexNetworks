@@ -164,7 +164,6 @@ def _compare_partitions(true_partition, detected_partition, G):
     return jaccard, nmi, nvi
 
 def plot_results(results, method):
-    """Plots the evolution of metrics over prr with improved visualization and numerical labels."""
     prr_values = [r["prr"] for r in results]
     num_communities = [r["num_communities"] for r in results]
     modularity = [r["modularity"] for r in results]
@@ -172,36 +171,41 @@ def plot_results(results, method):
     nmi = [r["nmi"] for r in results]
     nvi = [r["nvi"] for r in results]
 
+    # Normalize modularity to match scale [0,1]
+    max_modularity = max(modularity) if max(modularity) > 0 else 1
+    normalized_modularity = [m / max_modularity for m in modularity]
+
     fig, ax1 = plt.subplots(figsize=(14, 6))
 
     ax1.set_xlabel("prr", fontsize=12)
-    ax1.set_ylabel("Number of Communities / Modularity", fontsize=12)
-    line1, = ax1.plot(prr_values, num_communities, label="Number of Communities", linestyle="--", marker="o", alpha=0.7)
-    line2, = ax1.plot(prr_values, modularity, label="Modularity", linestyle="-", marker="s", alpha=0.7)
+    ax1.set_ylabel("Number of Communities", fontsize=12)
+    line1, = ax1.plot(prr_values, num_communities, label="Number of Communities", linestyle="-", marker="o", alpha=0.7)
     ax1.tick_params(axis="y")
     ax1.grid(True, linestyle="--", alpha=0.5)
 
     for i in range(0, len(prr_values), 10):  
         ax1.text(prr_values[i], num_communities[i], f"{num_communities[i]}", fontsize=9, ha="right", color="tab:blue")
-        ax1.text(prr_values[i], modularity[i], f"{modularity[i]:.2f}", fontsize=9, ha="left", color="tab:cyan")
 
     ax2 = ax1.twinx()
     ax2.set_ylabel("Similarity Metrics", fontsize=12)
+    line2, = ax2.plot(prr_values, normalized_modularity, label="Modularity", color="tab:cyan", linestyle="-", marker="s", alpha=0.7)
     line3, = ax2.plot(prr_values, jaccard, label="Jaccard", color="tab:red", linestyle="-.", marker="^", alpha=0.7)
     line4, = ax2.plot(prr_values, nmi, label="NMI", color="tab:orange", linestyle="-", marker="v", alpha=0.7)
     line5, = ax2.plot(prr_values, nvi, label="NVI", color="tab:pink", linestyle=":", marker="D", alpha=0.7)
     ax2.tick_params(axis="y")
 
     for i in range(0, len(prr_values), 5):
+        ax2.text(prr_values[i], normalized_modularity[i], f"{normalized_modularity[i]:.2f}", fontsize=9, ha="left", color="tab:cyan")
         ax2.text(prr_values[i], jaccard[i], f"{jaccard[i]:.2f}", fontsize=9, ha="right", color="tab:red")
         ax2.text(prr_values[i], nmi[i], f"{nmi[i]:.2f}", fontsize=9, ha="left", color="tab:orange")
         ax2.text(prr_values[i], nvi[i], f"{nvi[i]:.2f}", fontsize=9, ha="left", color="tab:pink")
 
     fig.suptitle(f"Community Evolution - {method} Method", fontsize=14, fontweight="bold")
-    ax1.legend(handles=[line1, line2], loc="upper left", fontsize=10, frameon=True)
-    ax2.legend(handles=[line3, line4, line5], loc="upper right", fontsize=10, frameon=True)
+    ax1.legend(handles=[line1], loc="upper left", fontsize=10, frameon=True)
+    ax2.legend(handles=[line2, line3, line4, line5], loc="upper right", fontsize=10, frameon=True)
 
     plt.show()
+
 
 def visualize_communities(method=CommunityDetectionMethod.LOUVAIN):
     prr_values = [0.02, 0.16, 1.00]
