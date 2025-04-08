@@ -171,10 +171,6 @@ def plot_results(results, method):
     nmi = [r["nmi"] for r in results]
     nvi = [r["nvi"] for r in results]
 
-    # Normalize modularity to match scale [0,1]
-    max_modularity = max(modularity) if max(modularity) > 0 else 1
-    normalized_modularity = [m / max_modularity for m in modularity]
-
     fig, ax1 = plt.subplots(figsize=(14, 6))
 
     ax1.set_xlabel("prr", fontsize=12)
@@ -188,14 +184,14 @@ def plot_results(results, method):
 
     ax2 = ax1.twinx()
     ax2.set_ylabel("Similarity Metrics", fontsize=12)
-    line2, = ax2.plot(prr_values, normalized_modularity, label="Modularity", color="tab:cyan", linestyle="-", marker="s", alpha=0.7)
+    line2, = ax2.plot(prr_values, modularity, label="Modularity", color="tab:cyan", linestyle="-", marker="s", alpha=0.7)
     line3, = ax2.plot(prr_values, jaccard, label="Jaccard", color="tab:red", linestyle="-.", marker="^", alpha=0.7)
     line4, = ax2.plot(prr_values, nmi, label="NMI", color="tab:orange", linestyle="-", marker="v", alpha=0.7)
     line5, = ax2.plot(prr_values, nvi, label="NVI", color="tab:pink", linestyle=":", marker="D", alpha=0.7)
     ax2.tick_params(axis="y")
 
     for i in range(0, len(prr_values), 5):
-        ax2.text(prr_values[i], normalized_modularity[i], f"{normalized_modularity[i]:.2f}", fontsize=9, ha="left", color="tab:cyan")
+        ax2.text(prr_values[i], modularity[i], f"{modularity[i]:.2f}", fontsize=9, ha="left", color="tab:cyan")
         ax2.text(prr_values[i], jaccard[i], f"{jaccard[i]:.2f}", fontsize=9, ha="right", color="tab:red")
         ax2.text(prr_values[i], nmi[i], f"{nmi[i]:.2f}", fontsize=9, ha="left", color="tab:orange")
         ax2.text(prr_values[i], nvi[i], f"{nvi[i]:.2f}", fontsize=9, ha="left", color="tab:pink")
