@@ -273,6 +273,10 @@ def visualize_communities_kamada_kawai(network_path: str, method: CommunityDetec
             communities = nx.algorithms.community.greedy_modularity_communities(G, weight="weight" if weighted else None)
         case CommunityDetectionMethod.INFOMAP:
             communities, _ = _infomap(G)
+        case CommunityDetectionMethod.GIRVAN_NEWMAN:
+            communities, _ = _girvan_newman(G)
+        case CommunityDetectionMethod.LABEL_PROPAGATION:
+            communities = nx.algorithms.community.label_propagation_communities(G)
         case _:
             raise ValueError(f"Method must be a valid {CommunityDetectionMethod} enumerate class.")
 
@@ -324,6 +328,10 @@ def stack_plot_school(network_path: str, metadata_path: str, method: CommunityDe
                 communities = nx.algorithms.community.greedy_modularity_communities(G, weight="weight")
             case CommunityDetectionMethod.INFOMAP:
                 communities, _ = _infomap(G)
+            case CommunityDetectionMethod.GIRVAN_NEWMAN:
+                communities, _ = _girvan_newman(G)
+            case CommunityDetectionMethod.LABEL_PROPAGATION:
+                communities = nx.algorithms.community.label_propagation_communities(G)
             case _:
                 raise ValueError(f"Method must be a valid {CommunityDetectionMethod} enumerate class.")
     else:
@@ -334,6 +342,10 @@ def stack_plot_school(network_path: str, metadata_path: str, method: CommunityDe
                 communities = nx.algorithms.community.greedy_modularity_communities(G)
             case CommunityDetectionMethod.INFOMAP:
                 communities, _ = _infomap(G)
+            case CommunityDetectionMethod.GIRVAN_NEWMAN:
+                communities, _ = _girvan_newman(G)
+            case CommunityDetectionMethod.LABEL_PROPAGATION:
+                communities = nx.algorithms.community.label_propagation_communities(G)
             case _:
                 raise ValueError(f"Method must be a valid {CommunityDetectionMethod} enumerate class.")
 
