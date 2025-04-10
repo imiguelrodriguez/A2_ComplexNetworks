@@ -1,22 +1,14 @@
-# Community Detection in Synthetic Networks
+# Activity 2: Community Detection
 
-This project analyzes the evolution of community structures in synthetic networks as the **internal connection probability (`prr`)** varies. It applies three different **community detection algorithms**:
+This activity aims to understand how community detection algorithms work and some of the recurrent nuances appearing when using these tools to characterize the mesoscale of complex networks. The activity is composed of two parts:
 
-- **Louvain Method** (Modularity Maximization)
-- **Girvan-Newman Algorithm** (Edge Betweenness)
-- **Infomap Algorithm** (Flow-based Clustering)
 
-The analysis includes:
-✅ Evolution of the **number of communities** and **modularity**  
-✅ **Comparison with ground-truth partitions** using:  
-   - **Jaccard Index**
-   - **Normalized Mutual Information (NMI)**
-   - **Normalized Variation of Information (NVI)**  
-✅ **Visualization** of communities at key values of `prr` (`0.02`, `0.16`, `1.00`)  
+- **Characterization of the community structure of networks with block structure**: In this part, five community detection algorithms are used to analyze the community structure of networks generated according to the _Stochastic Block Model_(SBM). The analysis includes the evolution of the number of communities and the modularity of the partitions found by each algorithm, a color-coded visualization of the community structure, and a conclusion section comparing the performance of each model based on standard indices.
 
----
+- **Characterization of the community structure of real networks**: In the second part, community detection algorithms are used to analyze the community structure of a real network capturing face-to-face interactions in a primary school in France.
 
-## 🚀 Installation
+
+## Installation
 
 Ensure you have **Python 3.8+** installed. Run the following command to install all dependencies:
 
