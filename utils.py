@@ -1,7 +1,7 @@
 import networkx as nx
 import pandas as pd
 import matplotlib.pyplot as plt
-
+import os
 from networkx.algorithms.community.quality import modularity as modularity_function
 from infomap import Infomap
 from sklearn.metrics import jaccard_score, normalized_mutual_info_score, confusion_matrix
@@ -62,6 +62,13 @@ def analyze_network_evolution(method=CommunityDetectionMethod.LOUVAIN):
 
         print(f"prr={prr:.2f} | Communities: {num_communities} | Modularity: {modularity:.4f} | "
               f"Jaccard: {jaccard:.4f} | NMI: {nmi:.4f} | NVI: {nvi:.4f}")
+        
+        os.makedirs("detected_communities", exist_ok=True)
+        method_str = str(method).lower()
+        prr_str = f"{prr:.2f}".replace(".", "_")
+        clu_filename = f"detected_communities/{method_str}/{method_str}_prr_{prr_str}.clu"
+        _save_communities_to_clu(partition, clu_filename, G.number_of_nodes())
+
 
     return results
 
@@ -386,3 +393,21 @@ def stack_plot_school(network_path: str, metadata_path: str, method: CommunityDe
 
 def _is_weighted(network_path:str)-> bool:
     return False if network_path.split("/")[1].split("_")[1].split(".")[0] == "u" else True
+
+def _save_communities_to_clu(partition, output_path, num_nodes):
+    """
+    Saves a community partition to a Pajek .clu file.
+    :param partition: list of sets, each set is a community.
+    :param output_path: str, path to the output .clu file.
+    :param num_nodes: int, total number of nodes (assumes nodes are 0-indexed and contiguous).
+    """
+    node_to_comm = {}
+    for comm_id, community in enumerate(partition):
+        for node in community:
+            node_to_comm[node] = comm_id + 1  # Pajek community IDs start at 1
+
+    with open(output_path, 'w') as f:
+        f.write(f"*Vertices {num_nodes}\n")
+        for node in range(num_nodes):
+            comm_id = node_to_comm.get(node, 0)  # Default to 0 if not found
+            f.write(f"{comm_id}\n")
